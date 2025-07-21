@@ -1,12 +1,17 @@
-import React, { useRef, useState } from 'react'
+import React, { useContext, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
+import { LanguageContext } from '../../context/LanguageContext';
+import api from '../../api/api';
+import axios from 'axios';
+import Cookies from 'js-cookie';
 
 export default function LoginPage() {
+  const { language } = useContext(LanguageContext);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const login = "rrr";
-  const password = "rrr";
+  // const login = "rrr";
+  // const password = "rrr";
 
   const [inputLogin, setInputLogin] = useState('');
   const [inputPassword, setInputPassword] = useState('');
@@ -15,10 +20,6 @@ export default function LoginPage() {
   const passwordRef = useRef(null);
   const buttonRef = useRef(null);
 
-  // Определение языка из URL
-  const lang = location.pathname.split('/')[1] || 'uz';
-
-  // Переводы
   const translations = {
     ru: {
       title: "Админ Панель",
@@ -52,18 +53,48 @@ export default function LoginPage() {
     }
   };
 
-  const t = translations[lang] || translations.ru;
+  const t = translations[language] || translations.ru;
 
-  const from = location.state?.from?.pathname || '/'
+  // const from = location.state?.from?.pathname || '/'
 
-  function handleSubmit(event) {
+  function getFingerprint() {
+    let fp = Cookies.get('fingerprint');
+    if (!fp) {
+      fp = crypto.randomUUID();
+      Cookies.set('fingerprint', fp, { expires: 30 }); // храним 30 дней
+    }
+    return fp;
+  }
+
+  const fingerprint = getFingerprint();
+
+
+  async function handleSubmit(event) {
     event.preventDefault();
-    if (inputLogin !== login || inputPassword !== password) {
-      setError(t.error);
-    } else {
-      setError('');
-      // ...дальнейшие действия при успешном входе...
-      navigate(from, { replace: true });
+    setError('');
+
+    try {
+      const res = await axios.post('http://localhost:3100/api/admin/login', {
+        username: inputLogin,
+        password: inputPassword,
+        fingerprint: fingerprint
+      });
+
+      Cookies.set('token', res.data.token, {
+        expires: 30,
+        secure: true,
+        sameSite: 'Strict',
+        path: '/',
+      });
+
+      // alert('Успешный вход!');
+      navigate(`/${language}`, { replace: true });
+
+      
+      // navigate или другие действия после входа
+    } catch (err) {
+      setError(t.error || 'Неверные данные');
+      // console.log("Ошибка входа:", err);
     }
   }
 
